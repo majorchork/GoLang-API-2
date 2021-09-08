@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"github.com/gin-gonic/gin"
+	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/mongo"
 	"go.mongodb.org/mongo-driver/mongo/options"
 	"go.mongodb.org/mongo-driver/mongo/readpref"
@@ -50,10 +51,10 @@ func main() {
 	// retrieve
 	_ = router.GET("/getListItem/:tittle", getSingleListItem)
 
-	//_ = router.GET("/getListItems", getmultipleListItem)
+	_ = router.GET("/getListItems", getMultipleListItem)
 
 	// update
-	//_ = router.PATCH("/updateListItem/:name", updateListItem)
+	_ = router.PATCH("/updateListItem/:name", updateListItem)
 
 	// delete
 	//_ = router.DELETE("/deleteListItem/:name", deleteListItem)
@@ -85,8 +86,17 @@ func createListItem(c *gin.Context)  {
 		return
 	}
 	// add single item to list of Items
-	Lists = append(Lists, list)
-
+	//Lists = append(Lists, list)
+	// linking to a db
+	_, err = dbClient.Database("listsdb").Collection("lists").InsertOne(context.Background(),list)
+	if err != nil{
+		fmt.Println("error creating list", err)
+		// if saving failed
+		c.JSON(500, gin.H{
+			"error": "could not create list, unable to process request",
+		})
+		return
+	}
 	c.JSON(200, gin.H{
 		"message": "succesfully created list item",
 		"data":    list,
@@ -112,12 +122,72 @@ func getSingleListItem(c *gin.Context) {
 	// check if the user is empty if so return a not found error
 	if &list == nil {
 		c.JSON(404, gin.H{
-			"error": "no user with name found:" + tittle,
+			"error": "no list with tittle found:" + tittle,
+		})
+		return
+	}
+	// linking to a db
+	query := bson.M{
+		"tittle" : tittle,
+	}
+	// ask vic about _, why iy is useful up and not now and
+	err := dbClient.Database("listsdb").Collection("lists").FindOne(context.Background(),query).Decode(&list)
+	if err != nil{
+		fmt.Println("list not found", err)
+		// if saving failed
+		c.JSON(400, gin.H{
+			"error": "could not find list" + tittle,
 		})
 		return
 	}
 	c.JSON(200, gin.H{
-		"message": "success",
+		"message": "list item found",
 		"data": Lists,
 	})
+}
+func getMultipleListItem(c *gin.Context){
+	var list []List
+	cursor, err := dbClient.Database("listsdb").Collection("lists").Find(context.Background(), bson.M{})
+	if err != nil {
+		c.JSON(500, gin.H{
+			"error" : "unable to process request, list not found",
+		})
+		return
+	}
+	err = cursor.All(context.Background(), &list)
+	if err != nil {
+		c.JSON(500, gin.H{
+			"error" : "unable to process request, list not found",
+		})
+		return
+	}
+	c.JSON(200, gin.H{
+		"message": "list item found",
+		"data": Lists,
+	})
+
+}
+func updateListItem(c *gin.Context){
+	tittle := c.Param("tittle")
+
+	var list []List
+	cursor, err := dbClient.Database("listsdb").Collection("lists").Find(context.Background(), bson.M{})
+	if err != nil {
+		c.JSON(500, gin.H{
+			"error" : "unable to process request, list not found",
+		})
+		return
+	}
+	err = cursor.All(context.Background(), &list)
+	if err != nil {
+		c.JSON(500, gin.H{
+			"error" : "unable to process request, list not found",
+		})
+		return
+	}
+	c.JSON(200, gin.H{
+		"message": "list item found",
+		"data": Lists,
+	})
+
 }
