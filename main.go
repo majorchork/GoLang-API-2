@@ -54,10 +54,10 @@ func main() {
 	_ = router.GET("/getListItems", getMultipleListItem)
 
 	// update
-	_ = router.PATCH("/updateListItem/:name", updateListItem)
+	//_ = router.PATCH("/updateListItem/:tittle", updateListItem)
 
 	// delete
-	//_ = router.DELETE("/deleteListItem/:name", deleteListItem)
+	_ = router.DELETE("/deleteListItem/:tittle", deleteListItem)
 
 	// run the server on the port 3000
 	port := os.Getenv("PORT")
@@ -146,7 +146,7 @@ func getSingleListItem(c *gin.Context) {
 	})
 }
 func getMultipleListItem(c *gin.Context){
-	var list []List
+	var lists []List
 	cursor, err := dbClient.Database("listsdb").Collection("lists").Find(context.Background(), bson.M{})
 	if err != nil {
 		c.JSON(500, gin.H{
@@ -154,7 +154,7 @@ func getMultipleListItem(c *gin.Context){
 		})
 		return
 	}
-	err = cursor.All(context.Background(), &list)
+	err = cursor.All(context.Background(), &lists)
 	if err != nil {
 		c.JSON(500, gin.H{
 			"error" : "unable to process request, list not found",
@@ -165,29 +165,70 @@ func getMultipleListItem(c *gin.Context){
 		"message": "list item found",
 		"data": Lists,
 	})
-
 }
-func updateListItem(c *gin.Context){
+/*func updateListItem(c *gin.Context){
 	tittle := c.Param("tittle")
 
 	var list []List
-	cursor, err := dbClient.Database("listsdb").Collection("lists").Find(context.Background(), bson.M{})
+
+	err := c.ShouldBindJSON(&list)
 	if err != nil {
-		c.JSON(500, gin.H{
-			"error" : "unable to process request, list not found",
+		c.JSON(400, gin.H{
+			"error": "invalid request data",
 		})
 		return
 	}
-	err = cursor.All(context.Background(), &list)
+	filterQuery := bson.M{
+		"tittle": tittle,
+	}
+
+	updateQuery := bson.M{
+		"$set": bson.M{
+			"tittle": Lists.Tittle,
+			"activity": Lists.Activity,
+			"executor": Lists.Executor,
+
+		},
+	}
+
+	_, err = dbClient.Database("listdb").Collection("lists").UpdateOne(context.Background(), filterQuery, updateQuery)
 	if err != nil {
 		c.JSON(500, gin.H{
-			"error" : "unable to process request, list not found",
+			"error" : "unable to process request, Update failed",
 		})
 		return
 	}
 	c.JSON(200, gin.H{
-		"message": "list item found",
+		"message": "Update Successful",
 		"data": Lists,
+	})
+
+}*/
+func deleteListItem(c *gin.Context){
+	tittle := c.Param("tittle")
+
+	var list []List
+
+	err := c.ShouldBindJSON(&list)
+	if err != nil {
+		c.JSON(400, gin.H{
+			"error": "invalid request data",
+		})
+		return
+	}
+	query := bson.M{
+		"tittle": tittle,
+	}
+
+	_, err = dbClient.Database("listdb").Collection("lists").DeleteOne(context.Background(), query)
+	if err != nil {
+		c.JSON(500, gin.H{
+			"error" : "unable to process request, Update failed",
+		})
+		return
+	}
+	c.JSON(200, gin.H{
+		"message": "Successfully Deleted",
 	})
 
 }
