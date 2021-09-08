@@ -2,13 +2,14 @@ package main
 
 import (
 	"context"
+	"fmt"
+	"github.com/gin-gonic/gin"
 	"go.mongodb.org/mongo-driver/mongo"
 	"go.mongodb.org/mongo-driver/mongo/options"
 	"go.mongodb.org/mongo-driver/mongo/readpref"
 	"log"
 	"os"
 	"time"
-	"github.com/gin-gonic/gin"
 )
 
 type List struct {
@@ -18,6 +19,7 @@ type List struct {
 }
 	// creating an empty array of list
 var Lists []List
+
 
 var dbClient *mongo.Client
 
@@ -46,9 +48,9 @@ func main() {
 	_ = router.POST("/createListItem", createListItem)
 
 	// retrieve
-	//_ = router.GET("/getListItem/:name", getSingleListItem)
+	_ = router.GET("/getListItem/:tittle", getSingleListItem)
 
-	_ = router.GET("/getListItems", getmultipleListItem)
+	//_ = router.GET("/getListItems", getmultipleListItem)
 
 	// update
 	//_ = router.PATCH("/updateListItem/:name", updateListItem)
@@ -90,7 +92,30 @@ func createListItem(c *gin.Context)  {
 		"data":    list,
 	})
 	}
-func getmultipleListItem(c *gin.Context) {
+func getSingleListItem(c *gin.Context) {
+	tittle := c.Param("tittle")
+
+	fmt.Println("tittle", tittle)
+
+	var list List
+	for _, value := range Lists{
+		//check the current iteration of list items
+		// check for a match with client request
+		if value.Title == tittle {
+			// if it matches the aasign the value to the empty list item we created and display
+			list  = value
+
+		}
+	}
+	// if no match was found
+	// the empty list we creaated would still be empty
+	// check if the user is empty if so return a not found error
+	if &list == nil {
+		c.JSON(404, gin.H{
+			"error": "no user with name found:" + tittle,
+		})
+		return
+	}
 	c.JSON(200, gin.H{
 		"message": "success",
 		"data": Lists,
