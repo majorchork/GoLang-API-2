@@ -14,9 +14,9 @@ import (
 )
 
 type List struct {
-	Title string `json:"title"`
-	Activity string `json:"activity"`
-	Executor string `json:"executor"`
+	Title string `json:"title" bson:"title"`
+	Activity string `json:"activity" bson:"activity"`
+	Executor string `json:"executor" bson:"executor"`
 }
 	// creating an empty array of list
 var Lists []List
@@ -49,15 +49,15 @@ func main() {
 	_ = router.POST("/createListItem", createListItem)
 
 	// retrieve
-	_ = router.GET("/getListItem/:tittle", getSingleListItem)
+	_ = router.GET("/getListItem/:title", getSingleListItem)
 
 	_ = router.GET("/getListItems", getMultipleListItem)
 
 	// update
-	//_ = router.PATCH("/updateListItem/:tittle", updateListItem)
+	_ = router.PATCH("/updateListItem/:title", updateListItem)
 
 	// delete
-	_ = router.DELETE("/deleteListItem/:tittle", deleteListItem)
+	_ = router.DELETE("/deleteListItem/:title", deleteListItem)
 
 	// run the server on the port 3000
 	port := os.Getenv("PORT")
@@ -86,7 +86,7 @@ func createListItem(c *gin.Context)  {
 		return
 	}
 	// add single item to list of Items
-	//Lists = append(Lists, list)
+	Lists = append(Lists, list)
 	// linking to a db
 	_, err = dbClient.Database("listsdb").Collection("lists").InsertOne(context.Background(),list)
 	if err != nil{
@@ -103,46 +103,48 @@ func createListItem(c *gin.Context)  {
 	})
 	}
 func getSingleListItem(c *gin.Context) {
-	tittle := c.Param("tittle")
+	title := c.Param("title")
 
-	fmt.Println("tittle", tittle)
+	fmt.Println("title", title)
 
 	var list List
+	 listAvailable := false
 	for _, value := range Lists{
 		//check the current iteration of list items
 		// check for a match with client request
-		if value.Title == tittle {
-			// if it matches the aasign the value to the empty list item we created and display
+		if value.Title == title {
+			// if it matches the asign the value to the empty list item we created and display
 			list  = value
+		listAvailable = true
 
 		}
 	}
 	// if no match was found
-	// the empty list we creaated would still be empty
+	// the empty list we created would still be empty
 	// check if the user is empty if so return a not found error
-	if &list == nil {
+	if !listAvailable {
 		c.JSON(404, gin.H{
-			"error": "no list with tittle found:" + tittle,
+			"error": "no list with tittle found:" + title,
 		})
 		return
 	}
 	// linking to a db
 	query := bson.M{
-		"tittle" : tittle,
+		"title" : title,
 	}
-	// ask vic about _, why iy is useful up and not now and
+	// ask vic about _, why it is useful up and not now and
 	err := dbClient.Database("listsdb").Collection("lists").FindOne(context.Background(),query).Decode(&list)
 	if err != nil{
 		fmt.Println("list not found", err)
 		// if saving failed
 		c.JSON(400, gin.H{
-			"error": "could not find list" + tittle,
+			"error": "could not find list" + title,
 		})
 		return
 	}
 	c.JSON(200, gin.H{
 		"message": "list item found",
-		"data": Lists,
+		"data": list,
 	})
 }
 func getMultipleListItem(c *gin.Context){
@@ -163,30 +165,38 @@ func getMultipleListItem(c *gin.Context){
 	}
 	c.JSON(200, gin.H{
 		"message": "list item found",
-		"data": Lists,
+		"data": lists,
 	})
 }
-/*func updateListItem(c *gin.Context){
-	tittle := c.Param("tittle")
+func updateListItem(c *gin.Context){
+	title := c.Param("title")
 
-	var list []List
-
-	err := c.ShouldBindJSON(&list)
-	if err != nil {
+	var list List
+	listAvailable :=false
+	for _, value := range Lists {
+		if value.Title == title{
+			list = value
+			listAvailable = true
+		}
+	}
+	if !listAvailable {
 		c.JSON(400, gin.H{
 			"error": "invalid request data",
 		})
 		return
 	}
+
+	err := c.ShouldBindJSON(&list)
+
 	filterQuery := bson.M{
-		"tittle": tittle,
+		"title": title,
 	}
 
 	updateQuery := bson.M{
 		"$set": bson.M{
-			"tittle": Lists.Tittle,
-			"activity": Lists.Activity,
-			"executor": Lists.Executor,
+			"title": list.Title,
+			"activity": list.Activity,
+			"executor": list.Executor,
 
 		},
 	}
@@ -203,7 +213,7 @@ func getMultipleListItem(c *gin.Context){
 		"data": Lists,
 	})
 
-}*/
+}
 func deleteListItem(c *gin.Context){
 	tittle := c.Param("tittle")
 
