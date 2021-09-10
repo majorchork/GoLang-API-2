@@ -108,7 +108,7 @@ func getSingleListItem(c *gin.Context) {
 	fmt.Println("title", title)
 
 	var list List
-	 listAvailable := false
+	/* listAvailable := false
 	for _, value := range Lists{
 		//check the current iteration of list items
 		// check for a match with client request
@@ -127,7 +127,7 @@ func getSingleListItem(c *gin.Context) {
 			"error": "no list with tittle found:" + title,
 		})
 		return
-	}
+	}*/
 	// linking to a db
 	query := bson.M{
 		"title" : title,
@@ -172,21 +172,13 @@ func updateListItem(c *gin.Context){
 	title := c.Param("title")
 
 	var list List
-	listAvailable :=false
-	for _, value := range Lists {
-		if value.Title == title{
-			list = value
-			listAvailable = true
-		}
-	}
-	if !listAvailable {
+	err := c.ShouldBindJSON(&list)
+	if err != nil {
 		c.JSON(400, gin.H{
 			"error": "invalid request data",
 		})
 		return
 	}
-
-	err := c.ShouldBindJSON(&list)
 
 	filterQuery := bson.M{
 		"title": title,
@@ -215,25 +207,17 @@ func updateListItem(c *gin.Context){
 
 }
 func deleteListItem(c *gin.Context){
-	tittle := c.Param("tittle")
+	title := c.Param("title")
 
-	var list []List
-
-	err := c.ShouldBindJSON(&list)
-	if err != nil {
-		c.JSON(400, gin.H{
-			"error": "invalid request data",
-		})
-		return
-	}
-	query := bson.M{
-		"tittle": tittle,
+	Query := bson.M{
+		"title": title,
 	}
 
-	_, err = dbClient.Database("listdb").Collection("lists").DeleteOne(context.Background(), query)
+
+	_, err := dbClient.Database("listdb").Collection("lists").DeleteOne(context.Background(), Query)
 	if err != nil {
 		c.JSON(500, gin.H{
-			"error" : "unable to process request, Update failed",
+			"error" : "unable to process request, delete failed",
 		})
 		return
 	}
