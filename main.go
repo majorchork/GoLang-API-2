@@ -193,7 +193,7 @@ func updateListItem(c *gin.Context){
 		},
 	}
 
-	_, err = dbClient.Database("listdb").Collection("lists").UpdateOne(context.Background(), filterQuery, updateQuery)
+	_, err = dbClient.Database("listsdb").Collection("lists").UpdateOne(context.Background(), filterQuery, updateQuery)
 	if err != nil {
 		c.JSON(500, gin.H{
 			"error" : "unable to process request, Update failed",
@@ -202,7 +202,7 @@ func updateListItem(c *gin.Context){
 	}
 	c.JSON(200, gin.H{
 		"message": "Update Successful",
-		"data": Lists,
+
 	})
 
 }
@@ -214,7 +214,7 @@ func deleteListItem(c *gin.Context){
 	}
 
 
-	_, err := dbClient.Database("listdb").Collection("lists").DeleteOne(context.Background(), Query)
+	_, err := dbClient.Database("listsdb").Collection("lists").DeleteOne(context.Background(), Query)
 	if err != nil {
 		c.JSON(500, gin.H{
 			"error" : "unable to process request, delete failed",
