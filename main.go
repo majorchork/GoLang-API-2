@@ -13,19 +13,29 @@ import (
 	"time"
 )
 
-type List struct {
+type User struct {
+	ID string `json:"id" bson:"id"`
 	Title string `json:"title" bson:"title"`
 	Activity string `json:"activity" bson:"activity"`
 	Executor string `json:"executor" bson:"executor"`
+	Ts time.Time `json:"timestamp" bson:"timestamp"`
+}
+type List struct {
+	ID string `json:"id" bson:"id"`
+	Title string `json:"title" bson:"title"`
+	Activity string `json:"activity" bson:"activity"`
+	Executor string `json:"executor" bson:"executor"`
+	Ts time.Time `json:"timestamp" bson:"timestamp"`
+}
+type Claims struct {
+	UserId string `json:"user_id"`
+	jwt.StandardClaims
 }
 	// creating an empty array of list
 var Lists []List
 
 
-var dbClient *mongo.Client
-
-func main() {
-
+var db
 	// creating a mongo.Client then connect function under
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
