@@ -1,12 +1,13 @@
 package main
 
 import (
+	"GoLang-API-2/DB"
+	"GoLang-API-2/models"
 	"context"
 	"fmt"
 	"github.com/gin-gonic/gin"
 	"github.com/golang-jwt/jwt/v4"
 	uuid "github.com/satori/go.uuid"
-	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/mongo"
 	"go.mongodb.org/mongo-driver/mongo/options"
 	"go.mongodb.org/mongo-driver/mongo/readpref"
@@ -25,24 +26,6 @@ const (
 	jwtSecret = "secretname"
 )
 
-type User struct {
-	ID       string    `json:"id" bson:"id"`
-	Name     string    `json:"name" bson:"name"`
-	Email    string    `json:"email" bson:"email"`
-	Password string    `json:"-,omitempty" bson:"password"`
-	Ts       time.Time `json:"timestamp" bson:"timestamp"`
-}
-type List struct {
-	ID       string    `json:"id" bson:"id"`
-	Title    string    `json:"title" bson:"title"`
-	Activity string    `json:"activity" bson:"activity"`
-	Executor string    `json:"executor" bson:"executor"`
-	Ts       time.Time `json:"timestamp" bson:"timestamp"`
-}
-type Claims struct {
-	UserId string `json:"user_id"`
-	jwt.StandardClaims
-}
 
 // creating an empty array of list
 //var Lists []List
@@ -141,7 +124,7 @@ func createListItem(c *gin.Context) {
 
 	// create an empty claims object to store the claims(userid,.......)
 	// decode token to get claims
-	claims := &Claims{}
+	claims := &models.Claims{}
 
 	keyFunc := func(token *jwt.Token) (i interface{}, e error) {
 		return []byte(jwtSecret), nil
@@ -159,8 +142,7 @@ func createListItem(c *gin.Context) {
 	}
 
 	//create a list item
-	var list List
-
+	var list models.List
 	// gets the list item from client (postman)
 	// fills up our empty list item with sent data
 	err = c.ShouldBindJSON(&list)
@@ -173,7 +155,7 @@ func createListItem(c *gin.Context) {
 	// generate task id
 	listId := uuid.NewV4().String()
 
-	list = List{
+	list = models.List{
 		ID:       listId,
 		Title:    list.Title,
 		Activity: list.Activity,
@@ -184,7 +166,7 @@ func createListItem(c *gin.Context) {
 	// add single item to list of Items
 	// Lists = append(Lists, list)
 	// linking to a db
-	_, err = dbClient.Database(DbName).Collection(ListCollection).InsertOne(context.Background(), list)
+	_, err = DB.CreateList(&list)
 	if err != nil {
 		fmt.Println("error creating list", err)
 		// if saving failed
@@ -194,7 +176,7 @@ func createListItem(c *gin.Context) {
 		return
 	}
 	c.JSON(200, gin.H{
-		"message": "succesfully created list item",
+		"message": "successfully created list item",
 		"data":    list,
 	})
 }
@@ -203,7 +185,7 @@ func getSingleListItem(c *gin.Context) {
 
 	fmt.Println("title", title)
 
-	var list List
+
 	/* listAvailable := false
 	for _, value := range Lists{
 		//check the current iteration of list items
@@ -225,11 +207,10 @@ func getSingleListItem(c *gin.Context) {
 		return
 	}*/
 	// linking to a db
-	query := bson.M{
-		"title": title,
-	}
+
+
 	// ask vic about _, why it is useful up and not now and
-	err := dbClient.Database("listsdb").Collection("lists").FindOne(context.Background(), query).Decode(&list)
+	list, err := DB.GetSingleListItem(title)
 	if err != nil {
 		fmt.Println("list not found", err)
 		// if saving failed
@@ -244,25 +225,18 @@ func getSingleListItem(c *gin.Context) {
 	})
 }
 func getAllUserHandler(c *gin.Context) {
-	var Users []User
 
-	cursor, err := dbClient.Database(DbName).Collection(UserCollection).Find(context.Background(), bson.M{})
+	users, err := DB.GetAllUserHandler()
 	if err != nil {
 		c.JSON(500, gin.H{
 			"error": "unable to process request, user not found",
 		})
 		return
 	}
-	err = cursor.All(context.Background(), &Users)
-	if err != nil {
-		c.JSON(500, gin.H{
-			"error": "unable to process request, user not found",
-		})
-		return
-	}
+
 	c.JSON(200, gin.H{
 		"message": "list item found",
-		"data":    Users,
+		"data":    users,
 	})
 }
 func getMultipleListItem(c *gin.Context) {
@@ -282,7 +256,7 @@ func getMultipleListItem(c *gin.Context) {
 	}
 
 	// decode token to get claims
-	claims := &Claims{}
+	claims := &models.Claims{}
 	keyFunc := func(token *jwt.Token) (i interface{}, e error) {
 		return []byte(jwtSecret), nil
 	}
@@ -294,21 +268,15 @@ func getMultipleListItem(c *gin.Context) {
 		})
 		return
 	}
-	var lists []List
-	cursor, err := dbClient.Database("listsdb").Collection("lists").Find(context.Background(), bson.M{})
+
+	lists, err := DB.GetMultipleListItem()
 	if err != nil {
 		c.JSON(500, gin.H{
 			"error": "unable to process request, list not found",
 		})
 		return
 	}
-	err = cursor.All(context.Background(), &lists)
-	if err != nil {
-		c.JSON(500, gin.H{
-			"error": "unable to process request, list not found",
-		})
-		return
-	}
+
 	c.JSON(200, gin.H{
 		"message": "list item found",
 		"data":    lists,
@@ -317,7 +285,7 @@ func getMultipleListItem(c *gin.Context) {
 func updateListItem(c *gin.Context) {
 	title := c.Param("title")
 
-	var list List
+	var list models.List
 	err := c.ShouldBindJSON(&list)
 	if err != nil {
 		c.JSON(400, gin.H{
@@ -326,19 +294,9 @@ func updateListItem(c *gin.Context) {
 		return
 	}
 
-	filterQuery := bson.M{
-		"title": title,
-	}
 
-	updateQuery := bson.M{
-		"$set": bson.M{
-			"title":    list.Title,
-			"activity": list.Activity,
-			"executor": list.Executor,
-		},
-	}
 
-	_, err = dbClient.Database("listsdb").Collection("lists").UpdateOne(context.Background(), filterQuery, updateQuery)
+	_, err = DB.UpdateListItem(title, list.Activity, list.Executor)
 	if err != nil {
 		c.JSON(500, gin.H{
 			"error": "unable to process request, Update failed",
@@ -351,13 +309,45 @@ func updateListItem(c *gin.Context) {
 
 }
 func deleteListItem(c *gin.Context) {
-	title := c.Param("title")
+	authorization := c.Request.Header.Get("Authorization")
+	// we return an error to the user if token is not supplied
+	if authorization == ""{
+		c.JSON(401, gin.H{
 
-	Query := bson.M{
-		"title": title,
+			"error": "auth token not suplied",
+		})
+		return
+	}
+	jwtToken := ""
+
+	// split the authentication token which looks like "Bearer asdsdsasadsd....."
+	// so that we can get the second part of the string which is the actual jwt token
+
+	splitTokenArray := strings.Split(authorization, "")
+	if len(splitTokenArray) > 1{
+		jwtToken = splitTokenArray[1]
+
 	}
 
-	_, err := dbClient.Database("listsdb").Collection("lists").DeleteOne(context.Background(), Query)
+	claims := &models.Claims{}
+
+	keyFunc := func(token *jwt.Token) (i interface{}, e error) {
+		return []byte(jwtSecret), nil
+	}
+	//this function helps us validate the token
+	// we can continue the request
+	token, err := jwt.ParseWithClaims(jwtToken, claims, keyFunc)
+
+	// we can check this token.Valid boolean value to know if the token is valid
+	if !token.Valid {
+		c.JSON(400, gin.H{
+			"error": "invalid jwt token",
+		})
+		return
+	}
+	title := c.Param("title")
+
+	err = DB.DeleteListItem(title)
 	if err != nil {
 		c.JSON(500, gin.H{
 			"error": "unable to process request, delete failed",
@@ -374,18 +364,15 @@ func loginHandler(c *gin.Context) {
 		Email    string `json:"email"`
 		Password string `json:"password"`
 	}{}
-	err := c.ShouldBindJSON(&loginReq)
+	 err := c.ShouldBindJSON(&loginReq)
 	if err != nil {
 		c.JSON(400, gin.H{
 			"error": "invalid request data",
 		})
 		return
 	}
-	var user User
-	query := bson.M{
-		"email": loginReq.Email,
-	}
-	err = dbClient.Database(DbName).Collection(UserCollection).FindOne(context.Background(), query).Decode(&user)
+	var user models.User
+	_, err = DB.LoginHandler(loginReq.Email)
 	if err != nil {
 		fmt.Printf("error gettinng user from db: %v\n", err)
 		c.JSON(500, gin.H{
@@ -406,7 +393,7 @@ func loginHandler(c *gin.Context) {
 	// create and return a jwt token
 	// claims are the data that you want to store inside the jwt token
 	// so whenever someone gives you a token you can decode it and get back this same claims
-	claims := &Claims{
+	claims := &models.Claims{
 		UserId: user.ID,
 		StandardClaims: jwt.StandardClaims{
 			IssuedAt:  time.Now().Unix(),
@@ -419,7 +406,7 @@ func loginHandler(c *gin.Context) {
 	jwtTokenString, err := token.SignedString([]byte(jwtSecret))
 
 	c.JSON(200, gin.H{
-		"message": "sign up successful",
+		"message": "Login successful",
 		"token":   jwtTokenString,
 		"data":    user,
 	})
@@ -441,28 +428,18 @@ func signupHandler(c *gin.Context) {
 		return
 	}
 
-	query := bson.M{
-		"email": signupReq.Email,
-	}
-
-	// search for duplicate users by email
-	count, err := dbClient.Database(DbName).Collection(UserCollection).CountDocuments(context.Background(), query)
-	if err != nil {
-		fmt.Println("error searching for user: ", err)
+		// search for duplicate users by email
+	exists := DB.SignUpCheckUserExists(signupReq.Email)
+	if exists{
+		fmt.Println("user already exists: ", err)
 
 		c.JSON(500, gin.H{
-			"error": "Could not process request, please try again later",
+			"error": "Email already exists, Please use a different email",
 		})
 		return
 	}
 
-	// if the count is greater than zero that means a user exists already with that email
-	if count > 0 {
-		c.JSON(500, gin.H{
-			"error": "Email already exits, please use a different email",
-		})
-		return
-	}
+
 
 	bytes, err := bcrypt.GenerateFromPassword([]byte(signupReq.Password), bcrypt.DefaultCost)
 	hashPassword := string(bytes)
@@ -470,7 +447,7 @@ func signupHandler(c *gin.Context) {
 	// generate user id
 	userId := uuid.NewV4().String()
 
-	user := User{
+	user := models.User{
 		ID:       userId,
 		Name:     signupReq.Name,
 		Email:    signupReq.Email,
@@ -479,7 +456,7 @@ func signupHandler(c *gin.Context) {
 	}
 
 	// store the users data
-	_, err = dbClient.Database(DbName).Collection(UserCollection).InsertOne(context.Background(), user)
+	_, err = DB.CreateUser(&user)
 	if err != nil {
 		fmt.Println("error saving user", err)
 		//	if saving ws not successful
@@ -491,7 +468,7 @@ func signupHandler(c *gin.Context) {
 
 	// claims are the data that you want to store inside the jwt token
 	// so whenever someone gives you a token you can decode it and get back this same claims
-	claims := &Claims{
+	claims := &models.Claims{
 		UserId: user.ID,
 		StandardClaims: jwt.StandardClaims{
 			IssuedAt:  time.Now().Unix(),
