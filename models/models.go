@@ -19,6 +19,6 @@ type List struct {
 	Ts       time.Time `json:"timestamp" bson:"timestamp"`
 }
 type Claims struct {
-	UserId string `json:"user_id"`
+	UserId string `json:"userId"`
 	jwt.StandardClaims
 }

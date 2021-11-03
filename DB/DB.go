@@ -16,7 +16,7 @@ const (
 	ListCollection = "lists"
 	UserCollection = "Users"
 
-	jwtSecret = "secretname"
+
 )
 var dbClient *mongo.Client
 func init (){
@@ -64,9 +64,12 @@ func GetAllUserHandler() ([]models.User, error) {
 	}
 	return users, nil
 }
-func GetMultipleListItem() ([]models.List, error){
+func GetMultipleListItem(executor string) ([]models.List, error){
 	var lists []models.List
-	cursor, err := dbClient.Database(DbName).Collection(ListCollection).Find(context.Background(), bson.M{})
+	query := bson.M{
+		"executor": executor,
+	}
+	cursor, err := dbClient.Database(DbName).Collection(ListCollection).Find(context.Background(), query)
 	if err != nil{
 		return nil, err
 	}
@@ -94,10 +97,10 @@ func UpdateListItem(title, activity, executor string)(*models.List, error){
 	}
 	return nil, err
 }
-func DeleteListItem(title string) error{
+func DeleteListItem(title, executor string) error{
 	query := bson.M{
 		"title" : title,
-		//"executor": executor,
+		"executor": executor,
 	}
 	_, err := dbClient.Database(DbName).Collection(ListCollection).DeleteOne(context.Background(),query)
 	if err != nil {
